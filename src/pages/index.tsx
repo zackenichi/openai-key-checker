@@ -1,29 +1,30 @@
 import { useState } from 'react';
-import Head from 'next/head';
 import {
-  Container,
-  Typography,
   TextField,
   Button,
   CircularProgress,
-  List,
-  ListItem,
-  Alert,
+  Typography,
+  Box,
 } from '@mui/material';
+import { Model } from '@/resources/types/Model';
 
 export default function Home() {
   const [apiKey, setApiKey] = useState('');
-  const [models, setModels] = useState<string[] | null>(null);
+  const [models, setModels] = useState<Model[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState('');
 
-  const handleSubmit = async () => {
+  const handleApiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setApiKey(e.target.value);
+  };
+
+  const handleCheckApiKey = async () => {
     setLoading(true);
-    setError(null);
-    setModels(null);
+    setError('');
+    setModels([]);
 
     try {
-      const res = await fetch('/api/check-key', {
+      const response = await fetch('/api/check-key', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -31,64 +32,64 @@ export default function Home() {
         body: JSON.stringify({ apiKey }),
       });
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.error || 'Unknown error');
-      } else {
-        setModels(data.models);
+      if (!response.ok) {
+        throw new Error('Failed to check API key.');
       }
+
+      const data = await response.json();
+      setModels(data.models);
     } catch (err) {
       console.error(err);
+      setError('Failed to connect to the server or invalid API key.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <>
-      <Head>
-        <title>OpenAI API Key Checker</title>
-      </Head>
-      <Container maxWidth="sm" sx={{ mt: 8 }}>
-        <Typography variant="h1" gutterBottom>
-          OpenAI API Key Checker
+    <Box sx={{ maxWidth: 600, margin: '0 auto', padding: 2 }}>
+      <Typography variant="h1" gutterBottom>
+        OpenAI API Key Validator
+      </Typography>
+
+      <TextField
+        label="API Key"
+        variant="outlined"
+        fullWidth
+        value={apiKey}
+        onChange={handleApiKeyChange}
+        margin="normal"
+      />
+
+      <Button
+        variant="contained"
+        color="primary"
+        onClick={handleCheckApiKey}
+        fullWidth
+        disabled={loading}
+      >
+        {loading ? <CircularProgress size={24} /> : 'Check API Key'}
+      </Button>
+
+      {error && (
+        <Typography color="error" sx={{ marginTop: 2 }}>
+          {error}
         </Typography>
+      )}
 
-        <TextField
-          label="API Key"
-          variant="outlined"
-          fullWidth
-          margin="normal"
-          value={apiKey}
-          onChange={(e) => setApiKey(e.target.value)}
-        />
-
-        <Button
-          variant="contained"
-          color="primary"
-          onClick={handleSubmit}
-          disabled={loading || !apiKey}
-          sx={{ mt: 2 }}
-          fullWidth
-        >
-          {loading ? <CircularProgress size={24} /> : 'Check Models'}
-        </Button>
-
-        {error && (
-          <Alert severity="error" sx={{ mt: 3 }}>
-            {error}
-          </Alert>
-        )}
-
-        {models && (
-          <List sx={{ mt: 3 }}>
-            {models.map((model) => (
-              <ListItem key={model}>{model}</ListItem>
-            ))}
-          </List>
-        )}
-      </Container>
-    </>
+      {models.length > 0 && (
+        <Box sx={{ marginTop: 2 }}>
+          <Typography variant="h6">Models</Typography>
+          {models.map((model) => (
+            <Box key={model.id} sx={{ marginBottom: 1 }}>
+              <Typography variant="body1">
+                <strong>{model.id}</strong> -{' '}
+                {model.usable ? 'Usable' : `Not Usable: ${model.error}`}
+              </Typography>
+            </Box>
+          ))}
+        </Box>
+      )}
+    </Box>
   );
 }
